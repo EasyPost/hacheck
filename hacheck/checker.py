@@ -160,3 +160,40 @@ def check_mysql(service_name, port, query, io_loop, query_params, headers):
         raise tornado.gen.Return((500, 'MySQL sez %s' % response))
     yield conn.quit()
     raise tornado.gen.Return((200, 'MySQL connect response: %s' % response))
+
+
+@cache.cached
+@tornado.gen.coroutine
+def check_zookeeper_ruok(service_name, port, query, io_loop, query_params, headers):
+    stream = None
+    connect_start = time.time()
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+    try:
+        stream = tornado.iostream.IOStream(s, io_loop=io_loop)
+        yield add_timeout_to_connect(
+            stream,
+            args=[('127.0.0.1', port)],
+            timeout_secs=TIMEOUT
+        )
+        yield stream.write(b'ruok\n')
+        response = (yield stream.read_bytes(4)).decode('ascii')
+        if response == 'imok':
+            raise tornado.gen.Return((200, 'imok'))
+        else:
+            raise tornado.gen.Return((500, 'response to ruok was {0}'.format(response)))
+    except Timeout:
+        raise tornado.gen.Return((
+            503,
+            'Connection timed out after %.2fs' % (time.time() - connect_start)
+        ))
+    except tornado.iostream.StreamClosedError:
+        raise tornado.gen.Return((503, 'Peer unexpectedly closed connection'))
+    except socket.error as e:
+        raise tornado.gen.Return((
+            503,
+            'Unexpected error %s after %2fs' % (e, time.time() - connect_start)
+        ))
+    finally:
+        if stream:
+            stream.close()
