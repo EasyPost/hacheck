@@ -100,7 +100,7 @@ def main():
         dest='check_spool_on_http',
         action='store_false',
         default=True,
-        help='Do not include spool checks in results sent over HTTP (only makes sense when using an agent!'
+        help='Do not include spool checks in results sent over HTTP (only makes sense when using an agent!)'
     )
     opts, args = parser.parse_args()
     if opts.config_file is not None:
